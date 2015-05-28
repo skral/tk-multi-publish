@@ -66,7 +66,9 @@ class PostPublishHook(Hook):
         elif engine_name == "tk-photoshop":
             self._do_photoshop_post_publish(work_template, progress_cb)
         elif engine_name == "tk-mari":
-            self._do_mari_post_publish(work_template, progress_cb)            
+            self._do_mari_post_publish(work_template, progress_cb) 
+        elif engine_name == "tk-syntheyes":
+            self._do_syntheyes_post_publish(work_template, progress_cb)            
         else:
             raise TankError("Unable to perform post publish for unhandled engine %s" % engine_name)
         
@@ -397,6 +399,42 @@ class PostPublishHook(Hook):
         """
         # nothing to do for Mari post-publish
         pass
+
+    def _do_syntheyes_post_publish(self, work_template, progress_cb):
+        """
+        Do any SynthEyes post-publish work
+
+        :param work_template:   The primary work template used for the publish
+        :param progress_cb:     Callback to be used when reporting progress
+        """
+        from syntheyes import get_existing_connection
+        
+        progress_cb(0, "Versioning up the script")
+
+        # get the current script path:
+        hlev = get_existing_connection()
+        original_path = hlev.SNIFileName()
+        script_path = os.path.abspath(original_path)
+
+        # increment version and construct new name:
+        progress_cb(25, "Finding next version number")
+        fields = work_template.get_fields(script_path)
+        next_version = self._get_next_work_file_version(work_template, fields)
+        fields["version"] = next_version
+        new_path = work_template.apply_fields(fields)
+
+        # log info
+        self.parent.log_debug("Version up work file %s --> %s..." % (script_path, new_path))
+
+        # save the script:
+        progress_cb(75, "Saving the scene file")
+        hlev.SetSNIFileName(new_path)
+        # SyPy documentation tells us it's best practice to init the menu
+        # before calling a menu command.
+        hlev.InitMenu()
+        hlev.ClickTopMenuAndContinue('File', 'Save')
+
+        progress_cb(100)
 
     def _get_next_work_file_version(self, work_template, fields):
         """

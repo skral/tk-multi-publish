@@ -84,6 +84,8 @@ class PrimaryPrePublishHook(Hook):
             return self._do_photoshop_pre_publish(task, work_template, progress_cb)
         elif engine_name == "tk-mari":
             return self._do_mari_pre_publish(task, work_template, progress_cb)
+        elif engine_name == "tk-syntheyes":
+            return self._do_syntheyes_pre_publish(task, work_template, progress_cb)
         else:
             raise TankError("Unable to perform pre-publish for unhandled engine %s" % engine_name)
         
@@ -368,6 +370,33 @@ class PrimaryPrePublishHook(Hook):
         # currently there is no primary publish for Mari so just return
         return []
 
+    def _do_syntheyes_pre_publish(self, task, work_template, progress_cb):
+        """
+        Do SynthEyes primary pre-publish/scene validation
+
+        :param task:            The primary task to pre-publish
+        :param work_template:   The primary work template to use
+        :param progress_cb:     A callback to use when reporting any progress
+                                to the UI
+        :returns:               A list of any errors or problems that were found
+                                during pre-publish
+        """
+        from syntheyes import get_existing_connection
+
+        progress_cb(0, "Validating current script", task)
+
+        # get the current script file path:
+        hlev = get_existing_connection()
+        script_file = hlev.SNIFileName()
+        if script_file:
+            script_file = os.path.abspath(script_file)
+
+        # validate it
+        script_errors = self._validate_work_file(script_file, work_template, task["output"], progress_cb)
+
+        progress_cb(100)
+
+        return script_errors
 
     def _validate_work_file(self, path, work_template, output, progress_cb):
         """
