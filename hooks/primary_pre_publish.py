@@ -84,6 +84,9 @@ class PrimaryPrePublishHook(Hook):
             return self._do_photoshop_pre_publish(task, work_template, progress_cb)
         elif engine_name == "tk-mari":
             return self._do_mari_pre_publish(task, work_template, progress_cb)
+        elif engine_name == "tk-cinema4d":
+            return self._do_cinema_pre_publish(task, work_template,
+                progress_cb)
         else:
             raise TankError("Unable to perform pre-publish for unhandled engine %s" % engine_name)
         
@@ -368,6 +371,23 @@ class PrimaryPrePublishHook(Hook):
         # currently there is no primary publish for Mari so just return
         return []
 
+    def _do_cinema_pre_publish(self, task, work_template, progress_cb):
+        """
+        Do Cinema 4D primary pre-publish/scene validation
+        """
+        import c4d
+        progress_cb(0.0, "Validating current scene", task)
+        # get the current scene file:
+        doc = c4d.documents.GetActiveDocument()
+        if doc:
+            scene_file = os.path.join(doc.GetDocumentPath(),doc.GetDocumentName())
+
+        # validate it:
+        scene_errors = self._validate_work_file(scene_file, work_template, task["output"], progress_cb)
+
+        progress_cb(100)
+
+        return scene_errors
 
     def _validate_work_file(self, path, work_template, output, progress_cb):
         """

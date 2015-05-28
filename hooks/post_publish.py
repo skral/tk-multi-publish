@@ -67,6 +67,8 @@ class PostPublishHook(Hook):
             self._do_photoshop_post_publish(work_template, progress_cb)
         elif engine_name == "tk-mari":
             self._do_mari_post_publish(work_template, progress_cb)            
+        elif engine_name == "tk-cinema4d":
+            self._do_cinema_post_publish(work_template, progress_cb)
         else:
             raise TankError("Unable to perform post publish for unhandled engine %s" % engine_name)
         
@@ -397,6 +399,37 @@ class PostPublishHook(Hook):
         """
         # nothing to do for Mari post-publish
         pass
+
+    def _do_cinema_post_publish(self, work_template, progress_cb):
+        """
+        Do any Cinema 4D post-publish work
+        """
+        import c4d
+
+        progress_cb(0, "Versioning up the scene file")
+
+        # get the current scene path:
+        doc = c4d.documents.GetActiveDocument()
+        scene_path = os.path.join(doc.GetDocumentPath(), doc.GetDocumentName())
+
+        # increment version and construct new file name:
+        progress_cb(25, "Finding next version number")
+        fields = work_template.get_fields(scene_path)
+        next_version = self._get_next_work_file_version(work_template, fields)
+        fields["version"] = next_version
+        new_scene_path = work_template.apply_fields(fields)
+
+        # log info
+        self.parent.log_debug(
+            "Version up work file %s --> %s..." % (scene_path, new_scene_path))
+
+        # rename and save the file
+        progress_cb(50, "Saving the scene file")
+        c4d.documents.SaveDocument(
+            doc, new_scene_path, c4d.SAVEDOCUMENTFLAGS_0, c4d.FORMAT_C4DEXPORT)
+        c4d.documents.LoadFile(new_scene_path)
+
+        progress_cb(100)
 
     def _get_next_work_file_version(self, work_template, fields):
         """
